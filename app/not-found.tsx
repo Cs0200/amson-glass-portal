@@ -1,0 +1,1 @@
+export default function NotFound(){return <main className="empty"><h1>This space is still undiscovered.</h1><p>The page you’re looking for doesn’t exist.</p><a className="button" href="/">Back to RAMSON Glass</a></main>}
