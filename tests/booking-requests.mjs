@@ -13,7 +13,7 @@ const base={name:'Test Customer',email:'TEST@example.com',phone:'+919999999999',
 const owner={'oai-authenticated-user-id':'site-owner','oai-authenticated-user-email':'owner@example.com'};
 const customer={'oai-authenticated-user-id':'site-customer','oai-authenticated-user-email':'test@example.com'};
 async function post(action,body,headers={},origin='https://example.com'){return mf.dispatchFetch('https://example.com/api/'+action,{method:'POST',headers:{origin,'Content-Type':'application/json',...headers},body:JSON.stringify(body)})}
-const get=(path,headers={})=>mf.dispatchFetch('https://example.com'+path,{headers});
+const get=(path,headers={})=>mf.dispatchFetch('https://example.com'+path,{headers,redirect:'manual'});
 let r=await post('contact',{...base,request_key:randomUUID()});assert.equal(r.status,200);assert.ok((await r.json()).reference);
 const key=randomUUID(),estimate={...base,request_key:key,service_id:'partitions',width:8,height:7,quantity:1,material:'Clear',finish:'Chrome'};
 r=await post('estimate',estimate);assert.equal(r.status,200);const saved=await r.json();assert.equal(saved.estimated_total,37900);
