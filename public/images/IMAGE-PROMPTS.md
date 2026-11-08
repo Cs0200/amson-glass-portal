@@ -1,0 +1,7 @@
+Generated using built-in image_gen. These images illustrate services; they are not photographs of completed RAMSON jobs.
+
+Glass film: public/images/glass-film-installation.png
+Prompt: Use case: photorealistic-natural. Asset type: landscape website service photo. Create a realistic professional Indian technician applying frosted privacy window film to a large vertical glass pane in a modern office. Clearly show the partially applied film sheet, his hands and a small squeegee smoothing it onto the glass, with a lifted film edge and subtle water droplets. Medium-wide framing with the person and glass as the focus, natural daylight, restrained neutral and sage tones, professional architectural photography. No text, logos, watermark or graphic overlay. Landscape 3:2 composition.
+
+Drone: public/images/drone-steam-cleaning.png
+Prompt: Use case: photorealistic-natural. Asset type: landscape concept photo for an upcoming drone steam-cleaning service. A realistic industrial multirotor cleaning drone hovering beside a modern building's large glass façade, equipped with a cleaning nozzle and a visible tethered supply hose descending out of frame. A focused spray and soft steam-like mist reach the window, with water droplets and reflections on the glass. Clear view of drone and the cleaning action, grounded industrial design, daylight, elegant neutral architectural photography. No people, no text, no logos or watermark. Landscape 3:2 composition. This is illustrative future-service imagery, not a documentary claim.
