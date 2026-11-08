@@ -1,0 +1,15 @@
+import {NextRequest} from 'next/server';
+import {createClient} from '@supabase/supabase-js';
+import {Webhook} from 'svix';
+import {createHmac,timingSafeEqual} from 'node:crypto';
+export const dynamic='force-dynamic';
+export async function GET(req:NextRequest,{params}:{params:Promise<{provider:string}>}){const {provider}=await params;const q=req.nextUrl.searchParams;if(provider==='whatsapp'&&process.env.WHATSAPP_VERIFY_TOKEN&&q.get('hub.mode')==='subscribe'&&q.get('hub.verify_token')===process.env.WHATSAPP_VERIFY_TOKEN)return new Response(q.get('hub.challenge'));return new Response('Forbidden',{status:403});}
+export async function POST(req:NextRequest,{params}:{params:Promise<{provider:string}>}){
+ const {provider}=await params;if(!['email','whatsapp'].includes(provider))return new Response('Not found',{status:404});
+ if(!process.env.SUPABASE_SERVICE_ROLE_KEY||!process.env.SUPABASE_URL)return new Response('Setup pending',{status:503});
+ const raw=await req.text();if(raw.length>1000000)return new Response('Too large',{status:413});let payload:any;
+ try{if(provider==='email'){if(!process.env.RESEND_WEBHOOK_SECRET)throw new Error();payload=new Webhook(process.env.RESEND_WEBHOOK_SECRET).verify(raw,{'svix-id':req.headers.get('svix-id')||'','svix-timestamp':req.headers.get('svix-timestamp')||'','svix-signature':req.headers.get('svix-signature')||''});}else{if(!process.env.WHATSAPP_APP_SECRET)throw new Error();const actual=Buffer.from(req.headers.get('x-hub-signature-256')||'');const expected=Buffer.from('sha256='+createHmac('sha256',process.env.WHATSAPP_APP_SECRET).update(raw).digest('hex'));if(actual.length!==expected.length||!timingSafeEqual(actual,expected))throw new Error();payload=JSON.parse(raw);}}catch{return new Response('Invalid signature',{status:401});}
+ const s=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
+ async function event(event_id:string,ch:string,provider:string|null,new_status:string,destination:string|null=null,suppress=false){const {error}=await s.rpc('apply_delivery_event',{event_id,ch,provider,new_status,destination,suppress});if(error)throw error;}
+ try{if(provider==='email'){const type=payload.type;const status=type==='email.delivered'?'delivered':['email.bounced','email.complained','email.failed'].includes(type)?'failed':'';if(status)await event('email:'+req.headers.get('svix-id'),'email',payload.data.email_id,status,payload.data.to?.[0]||null,['email.bounced','email.complained'].includes(type));}else{for(const entry of payload.entry||[])for(const change of entry.changes||[]){const value=change.value||{};if(value.metadata?.phone_number_id!==process.env.WHATSAPP_PHONE_NUMBER_ID)continue;for(const st of value.statuses||[])if(['delivered','read','failed'].includes(st.status))await event('whatsapp:'+st.id+':'+st.status,'whatsapp',st.id,st.status);for(const m of value.messages||[])if(/^(stop|unsubscribe|cancel)$/i.test(m.text?.body?.trim()||''))await event('whatsapp:stop:'+m.id,'whatsapp',null,'','+'+m.from,true);}}return new Response('OK');}catch{return new Response('Retry later',{status:503});}
+}

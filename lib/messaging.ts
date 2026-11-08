@@ -1,0 +1,14 @@
+export type Outbound={id:string;channel:string;purpose:string;destination:string;subject:string;body:string;template_name:string;language:string;parameters:string[]};
+export function messagingConfig(){return {enabled:process.env.MESSAGING_ENABLED==='true',email:Boolean(process.env.RESEND_API_KEY&&process.env.RESEND_FROM_EMAIL&&process.env.RESEND_WEBHOOK_SECRET),whatsapp:Boolean(process.env.WHATSAPP_ACCESS_TOKEN&&process.env.WHATSAPP_PHONE_NUMBER_ID&&process.env.WHATSAPP_GRAPH_VERSION&&process.env.WHATSAPP_APP_SECRET&&process.env.WHATSAPP_VERIFY_TOKEN&&process.env.WHATSAPP_PROGRESS_TEMPLATE),callbacks:Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY&&process.env.PUBLIC_APP_URL&&process.env.PUBLIC_CALLBACKS_READY==='true')};}
+export async function deliver(m:Outbound,unsubscribe:string,fetcher:typeof fetch=fetch){
+ const c=messagingConfig();if(!c.enabled||!c.callbacks||!(m.channel==='email'?c.email:c.whatsapp))throw new Error('Messaging provider setup is incomplete.');
+ let response:Response;
+ try{
+ if(m.channel==='email')response=await fetcher('https://api.resend.com/emails',{method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':m.id},body:JSON.stringify({from:process.env.RESEND_FROM_EMAIL,to:[m.destination],subject:m.subject||'RAMSON Glass',text:m.body+'\n\nRAMSON Glass · Ludhiana · +91 98764 50935\n'+(m.purpose==='marketing'?'Stop marketing emails: '+unsubscribe:'View your project: '+process.env.PUBLIC_APP_URL+'/customer'),...(m.purpose==='marketing'?{headers:{'List-Unsubscribe':`<${unsubscribe}>`,'List-Unsubscribe-Post':'List-Unsubscribe=One-Click'}}:{})})});
+ else response=await fetcher(`https://graph.facebook.com/${process.env.WHATSAPP_GRAPH_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,{method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',to:m.destination.replace(/^\+/,''),type:'template',template:{name:m.purpose==='update'?process.env.WHATSAPP_PROGRESS_TEMPLATE:m.template_name,language:{code:m.purpose==='update'?(process.env.WHATSAPP_PROGRESS_LANGUAGE||'en'):m.language},...(m.parameters.length?{components:[{type:'body',parameters:m.parameters.map(text=>({type:'text',text}))}]}:{})}})});
+ }catch{return {status:'unknown',detail:'No definitive provider response. Check provider records before resending.'};}
+ const data:any=await response.json().catch(()=>({}));
+ if(!response.ok)return {status:response.status>=500?'unknown':'failed',detail:`Provider HTTP ${response.status}. Review the provider dashboard.`};
+ const id=m.channel==='email'?data.id:data.messages?.[0]?.id;
+ return id?{status:'accepted',provider:id}:{status:'unknown',detail:'Provider did not return a message ID.'};
+}

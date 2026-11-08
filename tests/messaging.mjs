@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import ExcelJS from 'exceljs';
+import {customerWorkbook,sampleExport} from '../lib/excel.ts';
+import {deliver} from '../lib/messaging.ts';
+const file=await customerWorkbook({...sampleExport,customers:[{...sampleExport.customers[0],name:'=HYPERLINK("https://example.com")'}]});
+const book=new ExcelJS.Workbook();await book.xlsx.load(Buffer.from(file));
+assert.equal(book.worksheets.length,5);assert.equal(book.getWorksheet('Customers').getCell('B2').type,ExcelJS.ValueType.String);assert.equal(book.getWorksheet('Purchases').getCell('I2').value,33500);
+const m={id:'test-id',channel:'email',purpose:'marketing',destination:'test@example.com',subject:'Hello',body:'Test',template_name:'approved_template',language:'en',parameters:['Customer']};
+await assert.rejects(deliver(m,'https://example.com/unsubscribe',async()=>{throw new Error('Must not call network')}));
+Object.assign(process.env,{MESSAGING_ENABLED:'true',PUBLIC_CALLBACKS_READY:'true',PUBLIC_APP_URL:'https://example.com',SUPABASE_SERVICE_ROLE_KEY:'test',RESEND_API_KEY:'test',RESEND_FROM_EMAIL:'test@example.com',RESEND_WEBHOOK_SECRET:'test',WHATSAPP_ACCESS_TOKEN:'test',WHATSAPP_PHONE_NUMBER_ID:'123',WHATSAPP_GRAPH_VERSION:'v-test',WHATSAPP_APP_SECRET:'test',WHATSAPP_VERIFY_TOKEN:'test',WHATSAPP_PROGRESS_TEMPLATE:'progress'});
+const send=async(url,options)=>{assert.equal(options.headers['Idempotency-Key'],'test-id');assert.match(JSON.parse(options.body).text,/unsubscribe/);return Response.json({id:'email-123'})};
+assert.equal((await deliver(m,'https://example.com/unsubscribe',send)).status,'accepted');
+assert.equal((await deliver(m,'',async()=>{throw new Error('timeout')})).status,'unknown');
+assert.equal((await deliver(m,'',async()=>Response.json({},{status:400}))).status,'failed');
+assert.equal((await deliver(m,'',async()=>Response.json({},{status:500}))).status,'unknown');
+assert.equal((await deliver({...m,channel:'whatsapp'},'',async(_url,options)=>{const body=JSON.parse(options.body);assert.equal(body.type,'template');assert.equal(body.template.components[0].parameters[0].text,'Customer');return Response.json({messages:[{id:'wamid.123'}]})})).status,'accepted');
+console.log('PASS: real XLSX structure, formula safety, numeric balances, provider setup guard, email idempotency, template payload, accepted/failed/unknown states; no live messages sent');
