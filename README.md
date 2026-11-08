@@ -64,3 +64,9 @@ The application is a deployable implementation with backend setup files, not a v
 - `tests/ACCEPTANCE.md`: required backend launch checks
 
 The sample workspace is read-only demonstration data held in code. Unconfigured forms are disabled and APIs return 503; there is no localStorage authentication or fake persistence.
+
+## Service update — 8 November 2026
+
+Glass Film is available in the catalogue and estimator. Drone Cleaning with Steam is announced on the home page, services page, and its dedicated `/services/drone-steam-cleaning` page as **Coming soon**. It cannot be estimated or booked. No launch date, operating certification or performance claim is implied.
+
+For an existing database, run `supabase/migrations/20261108_glass_film.sql` to refresh film service wording without overwriting your prices. New databases use the updated seed file. Hosting remains on the existing private Sites deployment; no paid hosting plan or custom domain was purchased.
