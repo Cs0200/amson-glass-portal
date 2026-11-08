@@ -1,6 +1,9 @@
 import { NextRequest,NextResponse } from 'next/server';
 import {db,configured,identity} from '@/lib/supabase';
 import {z} from 'zod';
+import {getDb} from '@/db';
+import {consultationRequests} from '@/db/schema';
+import {services} from '@/lib/catalog';
 const contact=z.object({name:z.string().trim().min(2).max(100),email:z.string().email().max(200),phone:z.string().regex(/^[+\d ()-]{8,20}$/),message:z.string().max(3000).default(''),city:z.string().trim().min(2).max(100),address:z.string().trim().max(500).default(''),postal_code:z.string().trim().max(12).default(''),customer_type:z.enum(['Residential','Commercial'])});
 const estimate=z.object({service_id:z.string().min(1),width:z.number().positive().max(100),height:z.number().positive().max(100),quantity:z.number().int().min(1).max(100),material:z.enum(['Clear','Frosted','Tinted']),finish:z.enum(['Chrome','Matte black','Brushed steel'])});
 export async function GET(req:NextRequest,{params}:{params:Promise<{action:string[]}>}){
@@ -33,8 +36,18 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{action:strin
 export async function POST(req:NextRequest,{params}:{params:Promise<{action:string[]}>}){
  try{
  const origin=req.headers.get('origin');if(origin!==new URL(req.url).origin)return NextResponse.json({error:'Invalid request origin'},{status:403});
- if(!configured())return NextResponse.json({error:'Online booking is being configured. Please call +91 98764 50935. Nothing has been saved.'},{status:503});
- const {action}=await params;const s=await db();const user=await identity();
+ const {action}=await params;
+ if(!configured()&&['contact','estimate'].includes(action[0])){
+ const body=await req.json();const c=contact.parse(body);const details=action[0]==='estimate'?estimate.parse(body):null;
+ const service=details?services.find(s=>s.id===details.service_id):null;
+ if(details&&!service)throw new Error('Choose an available solution.');
+ const total=details&&service?Math.round(details.width*details.height*details.quantity*service.rate*(details.material==='Frosted'?1.15:details.material==='Tinted'?1.2:1)+1500*details.quantity):null;
+ const id=crypto.randomUUID();
+ await getDb().insert(consultationRequests).values({id,kind:action[0],name:c.name,email:c.email.toLowerCase(),phone:c.phone,city:c.city,address:c.address,postalCode:c.postal_code,customerType:c.customer_type,message:c.message,estimate:details?JSON.stringify(details):null,estimatedTotal:total,createdAt:new Date().toISOString()});
+ return NextResponse.json({ok:true,id,reference:id,guest:true,estimated_total:total});
+ }
+ if(!configured())return NextResponse.json({error:'Account services are being configured. Please call +91 98764 50935.'},{status:503});
+const s=await db();const user=await identity();
  if(action[0]==='upload'){
  if(!user)return NextResponse.json({error:'Please sign in.'},{status:401});const form=await req.formData();const project=String(form.get('project_id'));const file=form.get('file') as File;
  if(!file||file.size>10*1024*1024||!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type))throw new Error('Choose a JPG, PNG, WebP or PDF under 10 MB.');

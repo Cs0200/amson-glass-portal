@@ -122,6 +122,6 @@ Run `npx tsc --noEmit`, `node tests/communications.mjs`, and `node --experimenta
 
 Provider references: [Resend send API](https://resend.com/docs/api-reference/emails/send-email), [Resend webhook verification](https://resend.com/docs/webhooks/verify-webhooks-requests), [Meta template message example](https://www.postman.com/meta/whatsapp-business-platform/request/o65u5m5/send-message-template-text), [Meta signature-validation example](https://github.com/fbsamples/whatsapp-api-examples/blob/main/signature-validation-with-webhooks-payloads/app.py).
 
-### Estimate / consultation fallback
+### Estimate / consultation storage
 
-When Supabase is not configured, the estimate and contact forms prepare a WhatsApp request instead of presenting disabled submission buttons. The customer must open WhatsApp and press Send; the site never claims the request was delivered or saved. Estimates can be downloaded as a plain-text planning copy without logging in. This fallback does not create admin records or a confirmed appointment. When Supabase is configured and a customer is signed in, the original authenticated database-save path is used. Signed-out customers can still choose the WhatsApp flow.
+When Supabase is not configured, estimate and contact submissions are validated and saved in the Site's D1 consultation_requests table, with a reference shown on success. Owner database tools can inspect these requests. These records do not create Supabase customer portal projects or send notifications. The authenticated Supabase path is preserved when configured. Visitors can also download a plain-text estimate.
