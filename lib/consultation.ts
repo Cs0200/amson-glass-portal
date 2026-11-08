@@ -1,0 +1,5 @@
+export function consultationText(fields:Record<string,unknown>,estimate?:string){
+ return ['Hello RAMSON Glass, I would like to request a consultation.',estimate||'',...Object.entries({Name:fields.name,Phone:fields.phone,Email:fields.email,'Project type':fields.customer_type,City:fields.city,Address:fields.address,'Postal code':fields.postal_code,Notes:fields.message}).filter(([,v])=>v).map(([k,v])=>`${k}: ${String(v)}`),'Please confirm availability and the final quotation.'].filter(Boolean).join('\n');
+}
+export function consultationLink(text:string){return 'https://wa.me/919876450935?text='+encodeURIComponent(text)}
+export function estimateText(s:{name:string;width:number;height:number;quantity:number;material:string;finish:string;total:number}){return `RAMSON Glass — indicative estimate\nSolution: ${s.name}\nDimensions: ${s.width} × ${s.height} ft\nQuantity: ${s.quantity}\nGlass: ${s.material}\nHardware: ${s.finish}\nIndicative total: INR ${s.total.toLocaleString('en-IN')}\nSample rates; excludes taxes. Subject to site survey and final quotation.\nThis copy is not saved in the customer portal and does not confirm a consultation.`}
