@@ -1,0 +1,23 @@
+name: Portal checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: node tests/booking-requests.mjs
+      - run: node tests/communications.mjs
+      - run: node --experimental-strip-types tests/messaging.mjs

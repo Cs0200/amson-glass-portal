@@ -1,19 +1,12 @@
-# Verification performed
+# Commercial enquiry workflow verification
 
-- TypeScript: `npx tsc --noEmit` passed.
-- Production Worker build: Sites build helper passed for all five build stages.
-- HTTP smoke checks passed: home, catalogue, service detail, estimate and sample workspace return 200; anonymous admin/project/customer pages return 307 to login; missing route returns 404; project API returns 401; unconfigured contact API returns 503; cross-origin write returns 403.
-- Browser: selected railings, changed width to 10 ft with 7 ft height, selected frosted glass; preview updated to ₹73,950 (70 × ₹900 × 1.15 + ₹1,500). Final save is disabled with a clear setup notice.
-- Browser: sample Approved filter reduced three rows to one; project detail opened with specification, status progress, uploads, messages, QR and admin controls.
-- Browser: visually reviewed home at 390 px and 1440 px widths; reviewed project detail at phone width.
+- TypeScript compilation and production Worker build pass.
+- `node tests/booking-requests.mjs` applies all schema migrations to isolated D1 and tests durable requests, server-calculated estimates, explicit consent, honeypot handling, ten-minute IP limits, idempotent retries, origin checks, owner-only access, customer isolation, stale-edit rejection, quote revisions, superseded-link denial, explicit quotation acceptance, accepted scope preservation, manual payment amounts/references, overpayment protection, void audit, spreadsheet-safe CSV export, and private/no-store/no-referrer/noindex quotation responses.
+- `node tests/communications.mjs` checks the retained Supabase messaging SQL migration against a local PostgreSQL fixture, opt-in audiences, atomic claims, delivery deduplication, unsubscribe, contact resets and role guards.
+- `node --experimental-strip-types tests/messaging.mjs` checks XLSX safety and mocked messaging-provider behavior; no messages sent.
 
-Not verified: live Supabase auth/confirmation/password reset, SQL migration execution, RLS isolation, durable writes, private uploads/downloads and hosted provider integrations. These require the owner's Supabase project and launch configuration. Follow ACCEPTANCE.md before accepting real customers.
+The D1/Sites enquiry workflow works independently of Supabase. The separate legacy Supabase project-file/customer-record/communications features still require Supabase configuration and live integration checks.
 
-## Portal separation and customer records update
+Browser visual QA was unavailable because this environment had no managed Sites browser/preview tool. The API tests exercise the built production Worker and actual SQLite D1 implementation locally. They emulate the trusted Sites sign-in headers; production identity verification is performed by Sites dispatch.
 
-- TypeScript check passed after adding separate portal routes, customer directory, contact/location fields and purchase history components.
-- `python3 tests/portal-smoke.py`: 19 checks passed against an unconfigured local server: separate login redirects, legacy redirects, distinct customer/admin previews, consultation/location copy, protected directory/profile/purchase endpoints and unavailable unconfigured writes.
-- Browser checked admin directory → customer record → purchase form. Submitting a sample purchase showed “records are not saved”; the ledger remained unchanged.
-- Browser checked customer purchase history and contact/location form; the customer sidebar contains no admin tools.
-- Visual QA: admin record at desktop and 390 px width, admin sign-in at 390 px. Screenshot saved alongside deliverables.
-- No live Supabase credentials are configured. SQL migration, real auth, database constraints, ownership policies and durable customer/purchase/audit writes still require the acceptance checks documented in ACCEPTANCE.md.
+No real payment was collected, no provider notification sent, and no sample customer data was written to the live database.

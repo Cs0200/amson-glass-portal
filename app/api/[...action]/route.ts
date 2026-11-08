@@ -4,6 +4,8 @@ import {z} from 'zod';
 import {getDb} from '@/db';
 import {consultationRequests} from '@/db/schema';
 import {services} from '@/lib/catalog';
+import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {database,boundedBody,permitSubmission,json} from '@/lib/operations';
 const contact=z.object({name:z.string().trim().min(2).max(100),email:z.string().email().max(200),phone:z.string().regex(/^[+\d ()-]{8,20}$/),message:z.string().max(3000).default(''),city:z.string().trim().min(2).max(100),address:z.string().trim().max(500).default(''),postal_code:z.string().trim().max(12).default(''),customer_type:z.enum(['Residential','Commercial'])});
 const estimate=z.object({service_id:z.string().min(1),width:z.number().positive().max(100),height:z.number().positive().max(100),quantity:z.number().int().min(1).max(100),material:z.enum(['Clear','Frosted','Tinted']),finish:z.enum(['Chrome','Matte black','Brushed steel'])});
 export async function GET(req:NextRequest,{params}:{params:Promise<{action:string[]}>}){
@@ -38,13 +40,23 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{action:stri
  const origin=req.headers.get('origin');if(origin!==new URL(req.url).origin)return NextResponse.json({error:'Invalid request origin'},{status:403});
  const {action}=await params;
  if(!configured()&&['contact','estimate'].includes(action[0])){
- const body=await req.json();const c=contact.parse(body);const details=action[0]==='estimate'?estimate.parse(body):null;
+ const body=await boundedBody(req);
+ if(body.website)return json({error:'Unable to submit this request.'},400);
+ if(body.consent!==true)return json({error:'Please agree to be contacted about your project.'},400);
+ const requestKey=z.string().uuid().parse(body.request_key);
+ const c=contact.parse(body);
+ const visitor=await getChatGPTUser();
+ if(!await permitSubmission(req))return json({error:'Too many requests. Please wait 10 minutes or call our team.'},429);
+ const storage=database();
+ const existing=await storage.prepare('SELECT id,estimated_total FROM consultation_requests WHERE request_key=?').bind(requestKey).first<{id:string;estimated_total:number|null}>();
+ if(existing)return json({ok:true,id:existing.id,reference:existing.id,guest:true,estimated_total:existing.estimated_total});const details=action[0]==='estimate'?estimate.parse(body):null;
  const service=details?services.find(s=>s.id===details.service_id):null;
  if(details&&!service)throw new Error('Choose an available solution.');
  const total=details&&service?Math.round(details.width*details.height*details.quantity*service.rate*(details.material==='Frosted'?1.15:details.material==='Tinted'?1.2:1)+1500*details.quantity):null;
  const id=crypto.randomUUID();
- await getDb().insert(consultationRequests).values({id,kind:action[0],name:c.name,email:c.email.toLowerCase(),phone:c.phone,city:c.city,address:c.address,postalCode:c.postal_code,customerType:c.customer_type,message:c.message,estimate:details?JSON.stringify(details):null,estimatedTotal:total,createdAt:new Date().toISOString()});
- return NextResponse.json({ok:true,id,reference:id,guest:true,estimated_total:total});
+ await getDb().insert(consultationRequests).values({id,kind:action[0],name:c.name,email:c.email.toLowerCase(),phone:c.phone,city:c.city,address:c.address,postalCode:c.postal_code,customerType:c.customer_type,message:c.message,estimate:details?JSON.stringify(details):null,estimatedTotal:total,createdAt:new Date().toISOString(),requestKey,consentedAt:new Date().toISOString(),customerUserId:visitor&&visitor.email.toLowerCase()===c.email.toLowerCase()?visitor.userId:null}).onConflictDoNothing({target:consultationRequests.requestKey});
+ const saved=await storage.prepare('SELECT id,estimated_total FROM consultation_requests WHERE request_key=?').bind(requestKey).first<{id:string;estimated_total:number}>();
+ return json({ok:true,id:saved!.id,reference:saved!.id,guest:true,estimated_total:saved!.estimated_total});
  }
  if(!configured())return NextResponse.json({error:'Account services are being configured. Please call +91 98764 50935.'},{status:503});
 const s=await db();const user=await identity();
@@ -62,12 +74,12 @@ const s=await db();const user=await identity();
  if(result.error)throw result.error;
  if(action[1]==='login'){const signedIn=await identity();if(b.portal==='admin'&&!signedIn?.is_admin){await s.auth.signOut();return NextResponse.json({error:'This account does not have admin access. Please use the customer portal.'},{status:403});}return NextResponse.json({ok:true,redirect:signedIn?.is_admin?'/admin':'/customer'});}
  return NextResponse.json({ok:true});}
- if(action[0]==='contact'){const input=contact.parse(b);input.email=input.email.toLowerCase();const {error}=await s.from('leads').insert(input);if(error)throw error;return NextResponse.json({ok:true});}
+ if(action[0]==='contact'){if(b.consent!==true)throw new Error('Please agree to be contacted about your project.');const input=contact.parse(b);input.email=input.email.toLowerCase();const {error}=await s.from('leads').insert(input);if(error)throw error;return NextResponse.json({ok:true});}
  if(!user)return NextResponse.json({error:'Please sign in to save your project.'},{status:401});
  if(action[0]==='profile'){const input=contact.omit({email:true,message:true}).parse(b);const {error}=await s.rpc('update_customer_profile',{input});if(error)throw error;return NextResponse.json({ok:true});}
  if(action[0]==='logout'){await s.auth.signOut();return NextResponse.json({ok:true});}
  if(action[0]==='password'){const {error}=await s.auth.updateUser({password:z.string().min(10).max(128).parse(b.password)});if(error)throw error;return NextResponse.json({ok:true});}
- if(action[0]==='estimate'){const input=estimate.parse(b);const c=contact.parse(b);const {data,error}=await s.rpc('create_estimate',{input:{...input,...c}});if(error)throw error;return NextResponse.json({id:data});}
+ if(action[0]==='estimate'){if(b.consent!==true)throw new Error('Please agree to be contacted about your project.');const input=estimate.parse(b);const c=contact.parse(b);const {data,error}=await s.rpc('create_estimate',{input:{...input,...c}});if(error)throw error;return NextResponse.json({id:data});}
  if(action[0]==='message'){const text=z.string().trim().min(1).max(3000).parse(b.body);const {error}=await s.from('messages').insert({project_id:b.project_id,author_id:user.id,body:text,kind:['revision','service'].includes(String(b.kind))?String(b.kind):'message'});if(error)throw error;return NextResponse.json({ok:true});}
  if(!user.is_admin)return NextResponse.json({error:'Admin access required.'},{status:403});
  if(action[0]==='customer-update'){const input=contact.omit({email:true,message:true}).extend({id:z.string().uuid()}).parse(b);const {id,...fields}=input;const {data,error}=await s.from('profiles').update({...fields,updated_at:new Date().toISOString()}).eq('id',id).eq('is_admin',false).select('id').single();if(error||!data)throw error||new Error('Customer not found.');return NextResponse.json({ok:true});}
@@ -82,4 +94,6 @@ const s=await db();const user=await identity();
  if(action[0]==='pricing'){const input=z.object({id:z.string(),rate:z.number().positive().max(100000),description:z.string().min(10).max(2000)}).parse(b);const {id,...changes}=input;const {error}=await s.from('services').update(changes).eq('id',id);if(error)throw error;return NextResponse.json({ok:true});}
  if(action[0]==='lead'){const {error}=await s.from('leads').update({status:z.enum(['New','Contacted','Quoted','Approved','Installed','Completed']).parse(b.status)}).eq('id',z.string().uuid().parse(b.id));if(error)throw error;return NextResponse.json({ok:true});}
  return NextResponse.json({error:'Not found'},{status:404});
- }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Unable to complete request.'},{status:400});}}
+ }catch(e){
+ if(!configured())return json({error:e instanceof z.ZodError?'Please check the required contact details, city, and project measurements.':e instanceof Error&&['Choose an available solution.','Request is too large.'].includes(e.message)?e.message:'We could not save your request. Please retry or call +91 98764 50935.'},e instanceof z.ZodError||(e instanceof Error&&['Choose an available solution.','Request is too large.'].includes(e.message))?400:503);
+ return NextResponse.json({error:e instanceof Error?e.message:'Unable to complete request.'},{status:400});}}

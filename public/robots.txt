@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /operations
+Disallow: /my-requests
+Disallow: /quotation/
+Disallow: /api/
+Disallow: /admin
+Disallow: /customer
+Disallow: /demo/
