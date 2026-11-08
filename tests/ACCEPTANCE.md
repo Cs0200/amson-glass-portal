@@ -12,3 +12,12 @@
 10. Exercise phone and tablet layouts, keyboard navigation, forms, error messages, gallery close, status filtering, QR link copy and print-to-PDF output.
 11. With Supabase variables absent, API writes return 503; no fake success is shown. Sample dashboard is clearly labeled and no sample mutation persists.
 12. Before public launch enable and verify CAPTCHA/rate limits, monitoring, backups and the integrations listed in README.
+
+## Separate portals and customer ledger
+
+13. Apply the portal migration once (or use the updated full schema for a fresh database). Sign up two customers and promote a separate staff account through SQL only. Customer login must route to `/customer`; staff login must route to `/admin`. A customer signing in through `/admin/login` receives an explicit access-denied response and no admin session. Direct admin pages and all customer-directory/ledger-write APIs must enforce admin status.
+14. Create projects and purchases for customer A. As customer B, query `/api/customer/A`, `/api/customers`, direct Supabase purchases, project-linked purchases, customer_events and purchase_events. Directory/admin audit endpoints must deny access; database policies must never expose another customer's rows. As A, attempts to create/update/void purchases or change `profiles.is_admin` must fail.
+15. Save contact location in an estimate. Verify project snapshot and customer profile values. Change profile city/phone; old project location must remain intact and customer_events must retain old/new values. Verify email confirmation changes synchronize the directory email.
+16. Record a purchase linked to the correct customer's project. Linking another customer's project must fail at the database trigger. Reject duplicate references, negative amounts, paid amount exceeding total and voiding without a reason. Update paid amount, then void: every change must appear in purchase_events; a voided record must remain visible and immutable.
+17. Confirm estimates and approved quotations do not appear in purchase history automatically. Confirm manual payment entries never claim provider verification and never trigger a financial transaction.
+18. Test customer-directory search, every paginated section, the customer profile form, and separate demo navigation. The customer demo must not expose admin controls. Contact and estimate forms require city and project type; no consultation CTA includes “free”.

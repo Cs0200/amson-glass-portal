@@ -8,3 +8,12 @@
 - Browser: visually reviewed home at 390 px and 1440 px widths; reviewed project detail at phone width.
 
 Not verified: live Supabase auth/confirmation/password reset, SQL migration execution, RLS isolation, durable writes, private uploads/downloads and hosted provider integrations. These require the owner's Supabase project and launch configuration. Follow ACCEPTANCE.md before accepting real customers.
+
+## Portal separation and customer records update
+
+- TypeScript check passed after adding separate portal routes, customer directory, contact/location fields and purchase history components.
+- `python3 tests/portal-smoke.py`: 19 checks passed against an unconfigured local server: separate login redirects, legacy redirects, distinct customer/admin previews, consultation/location copy, protected directory/profile/purchase endpoints and unavailable unconfigured writes.
+- Browser checked admin directory → customer record → purchase form. Submitting a sample purchase showed “records are not saved”; the ledger remained unchanged.
+- Browser checked customer purchase history and contact/location form; the customer sidebar contains no admin tools.
+- Visual QA: admin record at desktop and 390 px width, admin sign-in at 390 px. Screenshot saved alongside deliverables.
+- No live Supabase credentials are configured. SQL migration, real auth, database constraints, ownership policies and durable customer/purchase/audit writes still require the acceptance checks documented in ACCEPTANCE.md.

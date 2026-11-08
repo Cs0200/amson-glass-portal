@@ -70,3 +70,19 @@ The sample workspace is read-only demonstration data held in code. Unconfigured 
 Glass Film is available in the catalogue and estimator. Drone Cleaning with Steam is announced on the home page, services page, and its dedicated `/services/drone-steam-cleaning` page as **Coming soon**. It cannot be estimated or booked. No launch date, operating certification or performance claim is implied.
 
 For an existing database, run `supabase/migrations/20261108_glass_film.sql` to refresh film service wording without overwriting your prices. New databases use the updated seed file. Hosting remains on the existing private Sites deployment; no paid hosting plan or custom domain was purchased.
+
+## Separate portals and customer records — 8 November 2026
+
+- **Customer sign-in:** `/customer/login`; workspace: `/customer`; project: `/customer/project/[id]`.
+- **Admin sign-in:** `/admin/login`; workspace: `/admin`; project: `/admin/project/[id]`.
+- **Previews:** `/demo/customer` shows only the customer experience; `/demo/admin` shows the team experience. Both are clearly labeled and do not save changes.
+- Legacy `/login`, `/projects`, `/project/[id]` and `/demo` links redirect to the appropriate entry points. The same Supabase identity system serves both portals; separation is enforced by server role checks and RLS, not just different page labels.
+- Customer contact fields: full name, account email, phone, residential/commercial type, city, optional site address and postal code. Contact requests and estimates capture location. The profile stores the latest supplied contact details, while each project retains its site-location snapshot.
+- Admin Customer Records: search and pagination, editable contact/location, related enquiries and projects, purchase history and contact audit history. Project details include messages, uploads, status history and project-linked purchases.
+- Purchase records are **manual team records**, with order reference, date, description, total, amount paid, balance and optional linked project. They support historical purchases. Estimates do not become purchases automatically. Updating paid amounts does not charge a customer. Voiding does not issue a refund. Duplicate references per customer are rejected; all purchase changes are audited. Customers can read only their own purchase records and cannot change them.
+
+### Database upgrade
+
+For an existing installation that has already run the original schema, execute `supabase/migrations/20261108_customer_admin_portals.sql` **once**. For a new project, execute the updated `supabase/schema.sql` and `supabase/seed.sql`; the portal extension is already included in the schema, so do not run that migration again. The image/copy migrations are independent optional upgrades for older catalogues.
+
+No Supabase project credentials were supplied. Database writes, identity roles, migration execution and real account isolation remain unverified until the owner connects Supabase. New screens explain this and offer separate customer/admin previews.
