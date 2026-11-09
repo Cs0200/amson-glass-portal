@@ -13,8 +13,11 @@ Connect Supabase to configure the project. Cloudflare deployment needs `CLOUDFLA
 
 ## Supabase provisioning
 
+The RAMSON project has now been created and its initial schema, seed, and permission hardening applied. See `supabase/DEPLOYMENT.md` for the exact project and verified state. Do not reapply the initial schema to that project.
+
+
 1. Use a new or explicitly selected Supabase project; inspect an existing project's tables before applying anything.
-2. For a fresh project, apply `supabase/schema.sql`, then `supabase/seed.sql`. The schema includes customer/admin roles, project creation, private file storage, customer records, manual purchases, and communications migrations. Do not rerun this initial schema over existing data.
+2. For a fresh project, apply `supabase/schema.sql`, then `supabase/seed.sql` and `supabase/production-hardening.sql`. The schema includes customer/admin roles, project creation, private file storage, customer records, manual purchases, and communications migrations. Do not rerun this initial schema over existing data.
 3. For existing installations, inspect migration state and apply only missing migrations from `supabase/migrations/`.
 4. In Supabase Auth, configure the actual Worker origin as the site URL and allow `/auth/callback` and `/auth/callback?next=/reset-password` on that origin. Configure email confirmation and SMTP as required.
 5. Create and verify the owner's account normally, then grant admin status using the database administration connection. The application must not use a service-role key to bypass customer authorization.

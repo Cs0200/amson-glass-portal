@@ -21,3 +21,4 @@ jobs:
       - run: node tests/booking-requests.mjs
       - run: node tests/communications.mjs
       - run: node --experimental-strip-types tests/messaging.mjs
+      - run: node tests/supabase-schema.mjs

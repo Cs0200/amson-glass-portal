@@ -1,0 +1,34 @@
+import {PGlite} from '@electric-sql/pglite';
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db=new PGlite();
+try{
+await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;
+CREATE SCHEMA auth;CREATE SCHEMA storage;
+CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,raw_user_meta_data jsonb DEFAULT '{}',created_at timestamptz DEFAULT now());
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$SELECT nullif(current_setting('test.uid',true),'')::uuid$$;
+CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+CREATE TABLE storage.objects(id uuid DEFAULT gen_random_uuid(),bucket_id text,name text,owner_id text);
+CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS $$SELECT (string_to_array($1,'/'))[1:array_length(string_to_array($1,'/'),1)-1]$$;
+GRANT USAGE ON SCHEMA public,auth,storage TO anon,authenticated;
+GRANT SELECT ON auth.users TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon,authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon,authenticated;`);
+await db.exec(await readFile('supabase/schema.sql','utf8'));
+await db.exec(await readFile('supabase/seed.sql','utf8'));
+await db.exec(await readFile('supabase/production-hardening.sql','utf8'));
+const a='00000000-0000-4000-8000-000000000001',b='00000000-0000-4000-8000-000000000002',admin='00000000-0000-4000-8000-000000000003';
+await db.query('INSERT INTO auth.users(id,email) VALUES ($1,$2),($3,$4),($5,$6)',[a,'one@example.com',b,'two@example.com',admin,'owner@example.com']);
+await db.query('UPDATE profiles SET is_admin=true WHERE id=$1',[admin]);
+await db.exec(`SELECT set_config('test.uid','${a}',false); SET ROLE authenticated`);
+await assert.rejects(db.query('UPDATE profiles SET is_admin=true WHERE id=$1',[a]));
+const input={service_id:'partitions',name:'Customer One',email:'one@example.com',phone:'+919999999999',width:8,height:7,quantity:1,material:'Clear',finish:'Chrome',city:'Ludhiana',customer_type:'Residential'};
+const pid=(await db.query('SELECT create_estimate($1) id',[input])).rows[0].id;
+assert.equal((await db.query('SELECT estimated_total FROM projects WHERE id=$1',[pid])).rows[0].estimated_total,'37900');
+await db.exec(`SELECT set_config('test.uid','${b}',false)`);
+assert.equal((await db.query('SELECT id FROM projects WHERE id=$1',[pid])).rows.length,0);
+await assert.rejects(db.query('INSERT INTO messages(project_id,author_id,body) VALUES ($1,$2,$3)',[pid,b,'Unauthorized message']));
+await db.exec(`SELECT set_config('test.uid','${admin}',false)`);
+assert.equal((await db.query('SELECT id FROM projects WHERE id=$1',[pid])).rows.length,1);
+console.log('PASS: full fresh schema and seed apply; customer profile creation, authoritative estimate pricing, admin access, customer isolation and role-escalation protection.');
+}finally{await db.close()}
