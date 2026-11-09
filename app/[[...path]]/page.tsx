@@ -9,8 +9,8 @@ export default async function Page({params}:{params:Promise<{path?:string[]}>}){
  if(route==='/projects')redirect(user?.is_admin?'/admin':'/customer');
  if(route==='/demo')redirect('/demo/admin');
  if(path[0]==='project'&&path.length===2)redirect((user?.is_admin?'/admin/project/':'/customer/project/')+path[1]);
- if(!configured()&&path[0]==='admin')redirect('/operations');
- if(!configured()&&(['customer','signup','forgot-password','reset-password'].includes(path[0])))redirect('/my-requests');
+ if(!configured()&&process.env.HOSTING_MODE!=='standalone'&&path[0]==='admin')redirect('/operations');
+ if(!configured()&&process.env.HOSTING_MODE!=='standalone'&&(['customer','signup','forgot-password','reset-password'].includes(path[0])))redirect('/my-requests');
  const adminArea=path[0]==='admin'&&route!=='/admin/login';const customerArea=path[0]==='customer'&&route!=='/customer/login';
  if(adminArea&&!user)redirect('/admin/login');
  if(adminArea&&!user?.is_admin)redirect('/customer?notice=admin-only');

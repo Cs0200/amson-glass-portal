@@ -4,6 +4,12 @@ import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
 const worker = {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    // A standalone Worker is not behind Sites' identity-verifying dispatch.
+    if(!new URL(request.url).hostname.endsWith('.chatgpt.site')&&!import.meta.env.DEV){
+      const incoming=new Headers(request.headers);
+      for(const key of [...incoming.keys()])if(key.startsWith('oai-authenticated-user-'))incoming.delete(key);
+      request=new Request(request,{headers:incoming});
+    }
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
     // the auxiliary service binding are absent from production builds.

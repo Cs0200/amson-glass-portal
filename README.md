@@ -59,3 +59,7 @@ Source changes must be synchronized to the Site's source repository before packa
 ## Other retained functionality
 
 Service catalogue, inspiration gallery (not claimed as completed client work), estimator, Supabase project messages/files, customer records, manual purchase history and opt-in communications modules. Supabase-specific setup files are in `supabase/`; these features require their own backend setup and live integration verification before use.
+
+## Standalone workers.dev deployment
+
+See [CLOUDFLARE-SETUP.md](CLOUDFLARE-SETUP.md). The owner-hosted Worker is independent of Sites and needs its own Supabase configuration. `npm run backend:check` is read-only; `npm run build:cloudflare` refuses to build a release without responding Supabase Auth and a seeded catalogue. These commands do not provision a database or grant an admin role. Standalone hosting must not trust Sites identity headers.

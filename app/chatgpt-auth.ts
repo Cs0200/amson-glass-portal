@@ -19,6 +19,8 @@ const SIGN_OUT_PATH = "/signout-with-chatgpt";
 const CALLBACK_PATH = "/callback";
 
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
+  // Only Sites dispatch can attest these headers. Standalone Workers use Supabase.
+  if (process.env.HOSTING_MODE === 'standalone') return null;
   const requestHeaders = await headers();
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
@@ -44,6 +46,7 @@ export async function requireChatGPTUser(
 ): Promise<ChatGPTUser> {
   const user = await getChatGPTUser();
   if (user) return user;
+  if(process.env.HOSTING_MODE==='standalone')redirect(returnTo==='/operations'?'/admin/login':'/customer/login');
 
   redirect(chatGPTSignInPath(returnTo));
 }

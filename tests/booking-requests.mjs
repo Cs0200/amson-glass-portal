@@ -12,8 +12,8 @@ for(const file of readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort())fo
 const base={name:'Test Customer',email:'TEST@example.com',phone:'+919999999999',city:'Ludhiana',customer_type:'Residential',message:'Test request',consent:true};
 const owner={'oai-authenticated-user-id':'site-owner','oai-authenticated-user-email':'owner@example.com'};
 const customer={'oai-authenticated-user-id':'site-customer','oai-authenticated-user-email':'test@example.com'};
-async function post(action,body,headers={},origin='https://example.com'){return mf.dispatchFetch('https://example.com/api/'+action,{method:'POST',headers:{origin,'Content-Type':'application/json',...headers},body:JSON.stringify(body)})}
-const get=(path,headers={})=>mf.dispatchFetch('https://example.com'+path,{headers,redirect:'manual'});
+async function post(action,body,headers={},origin='https://test.chatgpt.site'){return mf.dispatchFetch('https://test.chatgpt.site/api/'+action,{method:'POST',headers:{origin,'Content-Type':'application/json',...headers},body:JSON.stringify(body)})}
+const get=(path,headers={})=>mf.dispatchFetch('https://test.chatgpt.site'+path,{headers,redirect:'manual'});
 let r=await post('contact',{...base,request_key:randomUUID()});assert.equal(r.status,200);assert.ok((await r.json()).reference);
 const key=randomUUID(),estimate={...base,request_key:key,service_id:'partitions',width:8,height:7,quantity:1,material:'Clear',finish:'Chrome'};
 r=await post('estimate',estimate);assert.equal(r.status,200);const saved=await r.json();assert.equal(saved.estimated_total,37900);
@@ -67,3 +67,14 @@ r=await get('/api/operations?export=csv',owner);assert.ok((await r.text()).inclu
 for(const path of ['/privacy','/terms']){r=await get(path);assert.equal(r.status,200)}
 console.log('PASS: durable requests, retry idempotency, consent, spam controls, owner access, customer isolation, revision conflicts, quote supersession, approval, manual payments, void audit, CSV safety, and private cache headers.');
 }finally{await mf.dispose()}
+
+// The same source hosted directly on workers.dev must not trust caller identity headers.
+const standalone=new Miniflare({modules:[{type:'ESModule',path:'dist/server/index.js'},...files('dist/server').filter(f=>f.path!=='dist/server/index.js')],modulesRoot:'dist/server',compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],bindings:{RAMSON_OWNER_EMAIL:'owner@example.com',HOSTING_MODE:'standalone'}});
+try{
+ const forged={'oai-authenticated-user-id':'forged-owner','oai-authenticated-user-email':'owner@example.com'};
+ const denied=await standalone.dispatchFetch('https://example.workers.dev/api/operations',{headers:forged});
+ assert.equal(denied.status,403);
+ const login=await standalone.dispatchFetch('https://example.workers.dev/admin/login',{redirect:'manual'});
+ assert.equal(login.status,200);assert.ok((await login.text()).includes('Sign-in will be enabled after database setup.'));
+ console.log('PASS: standalone hosting rejects unverified Sites identity headers and does not pretend an unconfigured Supabase backend is ready.');
+}finally{await standalone.dispose()}
